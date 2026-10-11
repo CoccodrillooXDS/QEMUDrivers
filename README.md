@@ -7,23 +7,20 @@ This repo will ONLY be for the latest working drivers for Proxmox devices AND pa
 The software within this repo have their own copyright and licenses, reference the respective .inf files and copyright metadata for the copyright owners of said software.
 
 The below are the owners of the Coprighted files that I've been able to find manually:
-AlterWare,
-AnaPa Corp,
-BearWindows,
-Cirrus Logic,
-Intel,
-LSI Logic,
-Microsoft,
-RedHat,
-Realtek,
-Renesas,
-VMware,
-JHRobotics
+* AlterWare,
+* AnaPa Corp,
+* BearWindows,
+* Cirrus Logic,
+* Intel,
+* LSI Logic,
+* Microsoft,
+* RedHat,
+* Realtek,
+* Renesas,
+* VMware,
+* JHRobotics
 
-
-
-
-Red Hat
+**Red Hat**
 
 Copyright 2009-2017 Red Hat, Inc. and/or its affiliates.
 Copyright 2016 Google, Inc.
