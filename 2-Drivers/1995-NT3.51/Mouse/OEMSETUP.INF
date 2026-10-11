@@ -1,0 +1,438 @@
+; VMware VMMouse 12.4.0.3 - patched for Windows NT 3.51 (x86)
+
+[Identification]
+  OptionType = POINTER
+
+[LanguagesSupported]
+  ENG
+
+[Options]
+  vmmouse = i8042prt, mouclass
+
+[OptionsTextENG]
+  vmmouse = "VMware VMMouse"
+
+[MapOfOptions]
+  "VMWARE VMMOUSE" = vmmouse
+
+[Identify]
+  read-syms Identification
+  set Status = STATUS_SUCCESSFUL
+  set Identifier = $(OptionType)
+  set Media = #("Source Media Descriptions", 1, 1)
+  Return $(Status) $(Identifier) $(Media)
+
+[ReturnOptions]
+  set OptionList = {}
+  set OptionTextList = {}
+  set LanguageList = ^(LanguagesSupported, 1)
+  Ifcontains(i) $($0) NOT-IN $(LanguageList)
+    Return STATUS_NOLANGUAGE $(OptionList) $(OptionTextList)
+  Endif
+  set OptionList = ^(Options, 0)
+  set OptionTextList = ^(OptionsText$($0), 1)
+  Return STATUS_SUCCESSFUL $(OptionList) $(OptionTextList)
+
+[MapToSupportedOption]
+  set MappedOption = UNKNOWN
+  set OptionList = ^(MapOfOptions, 0)
+  Ifcontains $($0) in $(OptionList)
+    set MappedOption = #(MapOfOptions, $($0), 1)
+  Endif
+  Return STATUS_SUCCESSFUL $(MappedOption)
+
+[InstallOption]
+  set !G:DebugOutputControl = 1
+  set Status = STATUS_FAILED
+  set FailPoint = "initialization"
+  set Option = $($1)
+  set SrcDir = $($2)
+  set AddCopy = $($3)
+  set DoCopy = $($4)
+  set DoConfig = $($5)
+  set DrivesToFree = {}
+
+  set LanguageList = ^(LanguagesSupported, 1)
+  Ifcontains(i) $($0) NOT-IN $(LanguageList)
+    Return STATUS_NOLANGUAGE
+  Endif
+  Ifstr(i) $(Option) != vmmouse
+    Return STATUS_FAILED
+  Endif
+
+  ; Normal OEM behavior: if VMMOUSE.SYS is already installed,
+  ; offer NT Setup's native Current / New / Cancel dialog.
+  ; Current means NO new file copy; still run configuration below.
+  Ifstr(i) $(AddCopy) == YES
+    set FailPoint = "checking the installed file"
+    set CopyWanted = YES
+    LibraryProcedure ExistingFile,$(!LIBHANDLE),CheckFileExistance $(!STF_WINDOWSSYSPATH)"\drivers\VMMOUSE.SYS"
+    Ifstr(i) $(ExistingFile) == YES
+      set FailPoint = "Current/New selection"
+      shell "subroutn.inf" DriversExist $($0) "VMware VMMouse"
+      Ifint $($ShellCode) != $(!SHELL_CODE_OK)
+        goto install_failed
+      Endif
+      Ifstr(i) $($R0) == STATUS_CURRENT
+        set CopyWanted = NO
+      Else-Ifstr(i) $($R0) == STATUS_NEW
+        set CopyWanted = YES
+      Else-Ifstr(i) $($R0) == STATUS_USERCANCEL
+        set Status = STATUS_USERCANCEL
+        goto install_finished
+      Else
+        goto install_failed
+      Endif
+    Endif
+
+    Ifstr(i) $(CopyWanted) == YES
+      ; NT Setup already passes the source directory selected via Other.
+      ; Use it immediately without requesting the directory a second time.
+      ; Do not show DoAskSourceEx for a first-time OEM installation.
+      ; When choosing New for an already-installed driver from the
+      ; system list, Setup may supply only its default A:\ or no path.
+      ; Ask for a source in that case only, never for a usable SrcDir.
+      set NeedSourcePrompt = NO
+      Ifstr(i) $(SrcDir) == ""
+        set NeedSourcePrompt = YES
+      Else-Ifstr(i) $(ExistingFile) == YES
+        Ifstr(i) $(SrcDir) == "A:\"
+          set NeedSourcePrompt = YES
+        Endif
+      Endif
+
+      Ifstr(i) $(NeedSourcePrompt) == YES
+        set SuggestedSource = $(SrcDir)
+        Ifstr(i) $(SuggestedSource) == ""
+          set SuggestedSource = "D:\"
+        Else-Ifstr(i) $(SuggestedSource) == "A:\"
+          set SuggestedSource = "D:\"
+        Endif
+        set FailPoint = "selecting source directory"
+        shell "subroutn.inf" DoAskSourceEx $(SuggestedSource) "Enter the directory containing VMMOUSE.SYS."
+        Ifint $($ShellCode) != $(!SHELL_CODE_OK)
+          goto install_failed
+        Endif
+        Ifstr(i) $($R0) == STATUS_SUCCESSFUL
+          set SrcDir = $($R1)
+          Ifstr(i) $($R2) != ""
+            set DrivesToFree = >($(DrivesToFree), $($R2))
+          Endif
+        Else-Ifstr(i) $($R0) == STATUS_USERCANCEL
+          set Status = STATUS_USERCANCEL
+          goto install_finished
+        Else
+          goto install_failed
+        Endif
+      Endif
+
+      set FailPoint = "queuing the driver file"
+      install AddVMMouseCopy
+      Ifstr(i) $(STF_INSTALL_OUTCOME) != "STF_SUCCESS"
+        goto install_failed
+      Endif
+    Else
+      set DoCopy = NO
+    Endif
+  Endif
+
+  Ifstr(i) $(DoCopy) == YES
+    set FailPoint = "copying the driver file"
+    read-syms ProgressCopy$($0)
+    install PerformVMMouseCopy
+    Ifstr(i) $(STF_INSTALL_OUTCOME) == "STF_USERQUIT"
+      set Status = STATUS_USERCANCEL
+      goto install_finished
+    Endif
+    Ifstr(i) $(STF_INSTALL_OUTCOME) != "STF_SUCCESS"
+      goto install_failed
+    Endif
+  Endif
+
+  Ifstr(i) $(DoConfig) == YES
+    set FailPoint = "verifying setup permissions"
+    shell "registry.inf" CheckSetupModify
+    Ifint $($ShellCode) != $(!SHELL_CODE_OK)
+      goto install_failed
+    Endif
+    Ifstr(i) $($R0) != STATUS_SUCCESSFUL
+      goto install_failed
+    Endif
+
+    set FailPoint = "configuring independent VMMouse service"
+    shell "" CloneVMMouseService
+    Ifint $($ShellCode) != $(!SHELL_CODE_OK)
+      goto install_failed
+    Endif
+    Ifstr(i) $($R0) != STATUS_SUCCESSFUL
+      set FailPoint = "VMMouse configuration: "$($R1)
+      goto install_failed
+    Endif
+
+    set DlgType      = "MessageBox"
+    set STF_MB_TITLE = "VMware VMMouse"
+    set STF_MB_TEXT  = "The mouse driver configuration has been updated successfully. You MUST restart Windows NT for the change to take effect."
+    set STF_MB_TYPE  = 1
+    set STF_MB_ICON  = 1
+    set STF_MB_DEF   = 1
+    ui start "Error Message"
+  Endif
+  set Status = STATUS_SUCCESSFUL
+  goto install_finished
+
+install_failed = +
+  set DlgType = "MessageBox"
+  set STF_MB_TITLE = "VMware VMMouse - setup failed"
+  set STF_MB_TEXT = "Driver installation did not complete. Stage: "$(FailPoint)". Check the registry before restarting Windows NT."
+  set STF_MB_TYPE = 1
+  set STF_MB_ICON = 3
+  set STF_MB_DEF = 1
+  ui start "Error Message"
+
+install_finished = +
+  ForListDo $(DrivesToFree)
+    LibraryProcedure FreeStatus,$(!LIBHANDLE),DeleteNetConnection $($) "TRUE"
+  EndForListDo
+  Return $(Status)
+
+; Clone root service values (except Start, ImagePath and Tag) and ALL subkeys.
+; Existing VMMouse services are reused only if they point to this driver.
+[CloneVMMouseService]
+  set Status = STATUS_FAILED
+  set CloneStage = "checking service status"
+  set MaskAllAccess = 33554432
+  set SrcPath = "SYSTEM\CurrentControlSet\Services\i8042prt"
+  set DstPath = "SYSTEM\CurrentControlSet\Services\VMMouse"
+
+  ; Reuse an existing VMMouse service only if it targets this .SYS.
+  ; Do not overwrite an unrelated service.
+  OpenRegKey $(!REG_H_LOCAL) "" $(DstPath) $(MaskAllAccess) ExistingKey
+  Ifint $(RegLastError) == $(!REG_ERROR_SUCCESS)
+    set CloneStage = "checking existing VMMouse ImagePath"
+    GetRegValue $(ExistingKey) "ImagePath" ExistingImageInfo
+    set ReadError = $(RegLastError)
+    set ExistingImage = *($(ExistingImageInfo),4)
+    CloseRegKey $(ExistingKey)
+    Ifint $(ReadError) != $(!REG_ERROR_SUCCESS)
+      set CloneStage = "existing VMMouse service is incomplete"
+      goto finish_clone
+    Endif
+    Ifstr(i) $(ExistingImage) != "\SystemRoot\System32\Drivers\VMMOUSE.SYS"
+      set CloneStage = "an unrelated VMMouse service already exists"
+      goto finish_clone
+    Endif
+    goto enable_switch
+  Endif
+
+  set CloneStage = "opening original i8042prt service"
+  OpenRegKey $(!REG_H_LOCAL) "" $(SrcPath) $(MaskAllAccess) SourceKey
+  Ifint $(RegLastError) != $(!REG_ERROR_SUCCESS)
+    goto finish_clone
+  Endif
+  CloseRegKey $(SourceKey)
+
+  set CloneStage = "opening Services parent"
+  OpenRegKey $(!REG_H_LOCAL) "" "SYSTEM\CurrentControlSet\Services" $(MaskAllAccess) ParentKey
+  Ifint $(RegLastError) != $(!REG_ERROR_SUCCESS)
+    goto finish_clone
+  Endif
+  set CloneStage = "creating VMMouse key"
+  CreateRegKey $(ParentKey) {"VMMouse",0,$(MaskAllAccess)} "" $(MaskAllAccess) "" NewKey
+  set CreateError = $(RegLastError)
+  CloseRegKey $(ParentKey)
+  Ifint $(CreateError) != $(!REG_ERROR_SUCCESS)
+    goto finish_clone
+  Endif
+  set CloneStage = "disabling new service until setup finishes"
+  SetRegValue $(NewKey) {Start,0,$(!REG_VT_DWORD),4}
+  set WriteError = $(RegLastError)
+  CloseRegKey $(NewKey)
+  Ifint $(WriteError) != $(!REG_ERROR_SUCCESS)
+    goto finish_clone
+  Endif
+
+  set CloneStage = "copying original service registry configuration"
+  shell "" CopyRegistryBranch $(SrcPath) $(DstPath) ROOT
+  Ifint $($ShellCode) != $(!SHELL_CODE_OK)
+    goto finish_clone
+  Endif
+  Ifstr(i) $($R0) != STATUS_SUCCESSFUL
+    set CloneStage = "clone failed: "$($R1)
+    goto finish_clone
+  Endif
+
+  OpenRegKey $(!REG_H_LOCAL) "" $(DstPath) $(MaskAllAccess) NewKey
+  Ifint $(RegLastError) != $(!REG_ERROR_SUCCESS)
+    goto finish_clone
+  Endif
+  set CloneStage = "writing VMMouse ImagePath"
+  SetRegValue $(NewKey) {ImagePath,0,$(!REG_VT_EXPAND_SZ),"\SystemRoot\System32\Drivers\VMMOUSE.SYS"}
+  set WriteError = $(RegLastError)
+  CloseRegKey $(NewKey)
+  Ifint $(WriteError) != $(!REG_ERROR_SUCCESS)
+    goto finish_clone
+  Endif
+
+enable_switch = +
+  ; Do not copy the port driver Tag from i8042prt to VMMouse.
+  ; Remove it from existing VMMouse installations as well.
+  OpenRegKey $(!REG_H_LOCAL) "" $(DstPath) $(MaskAllAccess) NewKey
+  Ifint $(RegLastError) != $(!REG_ERROR_SUCCESS)
+    goto finish_clone
+  Endif
+  set CloneStage = "checking optional VMMouse Tag"
+  GetRegValue $(NewKey) "Tag" TagInfo
+  Ifint $(RegLastError) == $(!REG_ERROR_SUCCESS)
+    set CloneStage = "removing VMMouse Tag"
+    DeleteRegValue $(NewKey) "Tag"
+    set WriteError = $(RegLastError)
+    Ifint $(WriteError) != $(!REG_ERROR_SUCCESS)
+      CloseRegKey $(NewKey)
+      goto finish_clone
+    Endif
+  Endif
+  CloseRegKey $(NewKey)
+
+  OpenRegKey $(!REG_H_LOCAL) "" $(SrcPath) $(MaskAllAccess) OriginalKey
+  Ifint $(RegLastError) != $(!REG_ERROR_SUCCESS)
+    goto finish_clone
+  Endif
+  set CloneStage = "saving original i8042prt Start"
+  GetRegValue $(OriginalKey) "Start" OldStartInfo
+  set ReadError = $(RegLastError)
+  set OriginalStart = *($(OldStartInfo),4)
+  Ifint $(ReadError) != $(!REG_ERROR_SUCCESS)
+    CloseRegKey $(OriginalKey)
+    goto finish_clone
+  Endif
+  set CloneStage = "disabling original i8042prt"
+  SetRegValue $(OriginalKey) {Start,0,$(!REG_VT_DWORD),4}
+  set WriteError = $(RegLastError)
+  CloseRegKey $(OriginalKey)
+  Ifint $(WriteError) != $(!REG_ERROR_SUCCESS)
+    goto finish_clone
+  Endif
+
+  OpenRegKey $(!REG_H_LOCAL) "" $(DstPath) $(MaskAllAccess) NewKey
+  Ifint $(RegLastError) != $(!REG_ERROR_SUCCESS)
+    goto rollback_old
+  Endif
+  ; Load the port driver in the System phase (Start=1).
+  set CloneStage = "enabling VMMouse System start (1)"
+  SetRegValue $(NewKey) {Start,0,$(!REG_VT_DWORD),1}
+  set WriteError = $(RegLastError)
+  CloseRegKey $(NewKey)
+  Ifint $(WriteError) != $(!REG_ERROR_SUCCESS)
+    goto rollback_old
+  Endif
+  set Status = STATUS_SUCCESSFUL
+  goto finish_clone
+
+rollback_old = +
+  OpenRegKey $(!REG_H_LOCAL) "" $(SrcPath) $(MaskAllAccess) OriginalKey
+  Ifint $(RegLastError) == $(!REG_ERROR_SUCCESS)
+    SetRegValue $(OriginalKey) {Start,0,$(!REG_VT_DWORD),$(OriginalStart)}
+    CloseRegKey $(OriginalKey)
+  Endif
+finish_clone = +
+  Return $(Status) $(CloneStage)
+
+; Clone present values and descendant keys. The root call
+; skips Start, ImagePath and Tag, which are deliberately not cloned.
+[CopyRegistryBranch]
+  set Status = STATUS_FAILED
+  set CopyStage = "open source"
+  set MaskAllAccess = 33554432
+  set SourcePath = $($0)
+  set TargetPath = $($1)
+  set IsRoot = $($2)
+  OpenRegKey $(!REG_H_LOCAL) "" $(SourcePath) $(MaskAllAccess) SourceKey
+  Ifint $(RegLastError) != $(!REG_ERROR_SUCCESS)
+    goto finish_copy
+  Endif
+  set CopyStage = "open destination"
+  OpenRegKey $(!REG_H_LOCAL) "" $(TargetPath) $(MaskAllAccess) TargetKey
+  Ifint $(RegLastError) != $(!REG_ERROR_SUCCESS)
+    CloseRegKey $(SourceKey)
+    goto finish_copy
+  Endif
+
+  ; Enumeration may leave RegLastError set to NO_MORE_ITEMS.
+  ; Consume the returned list without checking RegLastError afterward.
+  set CopyStage = "enumerate registry values"
+  set ValueList = {}
+  EnumRegValue $(SourceKey) ValueList
+  ForListDo $(ValueList)
+    set Item = $($)
+    set Name = *($(Item),1)
+    set ShouldCopy = YES
+    Ifstr(i) $(IsRoot) == ROOT
+      Ifstr(i) $(Name) == Start
+        set ShouldCopy = NO
+      Else-Ifstr(i) $(Name) == ImagePath
+        set ShouldCopy = NO
+      Else-Ifstr(i) $(Name) == Tag
+        set ShouldCopy = NO
+      Endif
+    Endif
+    Ifstr(i) $(ShouldCopy) == YES
+      set CopyStage = "write value "$(Name)
+      SetRegValue $(TargetKey) $(Item)
+      Ifint $(RegLastError) != $(!REG_ERROR_SUCCESS)
+        goto close_copy
+      Endif
+    Endif
+  EndForListDo
+
+  set CopyStage = "enumerate registry subkeys"
+  set SubkeyList = {}
+  EnumRegKey $(SourceKey) SubkeyList
+  ForListDo $(SubkeyList)
+    set ChildName = *($($),1)
+    set CopyStage = "create subkey "$(ChildName)
+    CreateRegKey $(TargetKey) {$(ChildName),0,$(MaskAllAccess)} "" $(MaskAllAccess) "" ChildKey
+    Ifint $(RegLastError) != $(!REG_ERROR_SUCCESS)
+      goto close_copy
+    Endif
+    CloseRegKey $(ChildKey)
+    set ChildSourcePath = $(SourcePath)"\"$(ChildName)
+    set ChildTargetPath = $(TargetPath)"\"$(ChildName)
+    set CopyStage = "copy subkey "$(ChildName)
+    shell "" CopyRegistryBranch $(ChildSourcePath) $(ChildTargetPath) CHILD
+    Ifint $($ShellCode) != $(!SHELL_CODE_OK)
+      goto close_copy
+    Endif
+    Ifstr(i) $($R0) != STATUS_SUCCESSFUL
+      set CopyStage = "subkey "$(ChildName)": "$($R1)
+      goto close_copy
+    Endif
+  EndForListDo
+  set Status = STATUS_SUCCESSFUL
+  set CopyStage = "complete"
+close_copy = +
+  CloseRegKey $(TargetKey)
+  CloseRegKey $(SourceKey)
+finish_copy = +
+  Return $(Status) $(CopyStage)
+
+[AddVMMouseCopy]
+  AddSectionKeyFileToCopyList Files-VMMouse vmmouse $(SrcDir) $(!STF_WINDOWSSYSPATH)\drivers
+  exit
+
+[PerformVMMouseCopy]
+  CopyFilesInCopyList
+  exit
+
+[ProgressCopyENG]
+  ProCaption = "VMware VMMouse"
+  ProCancel = "Cancel"
+  ProCancelMsg = "Cancel mouse driver installation?"
+  ProCancelCap = "Setup"
+  ProText1 = "Copying:"
+  ProText2 = "To:"
+
+[Source Media Descriptions]
+  1 = "VMware VMMouse", TAGFILE = VMMOUSE.TAG
+
+[Files-VMMouse]
+  vmmouse = 1, VMMOUSE.SYS
