@@ -4,6 +4,18 @@ Reproducible binary patch for VMware VMMouse 12.4.0.3 (x86), adapted from its Wi
 
 The installable package is distributed on the [`main` branch](https://github.com/CoccodrillooXDS/QEMUDrivers/tree/main/2-Drivers/1995-NT3.51/Mouse). This development project contains no driver binaries.
 
+## Disclaimer
+This driver was backported from the NT 4.0 version and adapted for Windows NT 3.51.
+It was backported with assistance from AI (ChatGPT by OpenAI).
+It is an independent project and is not affiliated with, endorsed by,
+or supported by the QEMU project or VMware or its developers.
+
+The driver has been tested on Windows NT 3.51 SP5 (x86, build 1057)
+
+This software is provided "as is", without warranty of any kind.
+The author assumes no responsibility for damage or data loss arising
+from its use. Use at your own risk.
+
 ## Input and output
 
 | File | SHA-256 |
