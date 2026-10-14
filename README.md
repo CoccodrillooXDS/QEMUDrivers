@@ -20,6 +20,14 @@ The patch enables the driver to run on NT 3.51 while preserving PS/2 keyboard in
 
 The tested, installable driver package is available on [`main`](https://github.com/CoccodrillooXDS/QEMUDrivers/tree/main/2-Drivers/1995-NT3.51/Mouse).
 
+### QEMUPWR for Windows NT 3.51 and NT 4.0
+
+QEMUPWR 1.4 enables automatic VM power-off on Windows NT 3.51 and Windows NT 4.0 through the QEMU ISA pvpanic shutdown event (`0x04`), without requiring guest ACPI support.
+
+The [source code](QEMU/pvpanic/1.4/) produces `QEMUPWR.EXE` and `QEMUPWR.SYS`.
+
+The tested driver packages are provided on `main` for [Windows NT 3.51](https://github.com/CoccodrillooXDS/QEMUDrivers/tree/main/2-Drivers/1995-NT3.51/Power/QEMU%20pvpanic) and [Windows NT 4.0](https://github.com/CoccodrillooXDS/QEMUDrivers/tree/main/2-Drivers/1996-NT4/Power/QEMU%20pvpanic).
+
 ## Copyright and licensing
 
 Original drivers and third-party components remain subject to their respective copyright and license terms. Any included patches or utilities should be considered separately from the licensing of the software they modify.
