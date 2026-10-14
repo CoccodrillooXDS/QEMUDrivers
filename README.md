@@ -30,4 +30,8 @@ The tested driver packages are provided on `main` for [Windows NT 3.51](https://
 
 ## Copyright and licensing
 
-Original drivers and third-party components remain subject to their respective copyright and license terms. Any included patches or utilities should be considered separately from the licensing of the software they modify.
+Original source code, scripts, and patches developed for this repository are licensed under the MIT License, unless otherwise noted. See [LICENSE](LICENSE).
+
+Third-party software and components remain subject to their respective licenses and copyright terms. The MIT License does not grant rights to the original software modified by these projects.
+
+The `main` branch contains redistributable driver packages and other components governed by their respective licenses.
