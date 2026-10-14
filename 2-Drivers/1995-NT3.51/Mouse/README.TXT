@@ -10,6 +10,20 @@ available kernel functions. It provides absolute mouse positioning
 through QEMU's VMware VMMouse device while retaining PS/2 keyboard input.
 
 
+DISCLAIMER
+----------
+This driver was backported from the NT 4.0 version and adapted for Windows NT 3.51.
+It was backported with assistance from AI (ChatGPT by OpenAI).
+It is an independent project and is not affiliated with, endorsed by,
+or supported by the QEMU project or VMware or its developers.
+
+The driver has been tested on Windows NT 3.51 SP5 (x86, build 1057)
+
+This software is provided "as is", without warranty of any kind.
+The author assumes no responsibility for damage or data loss arising
+from its use. Use at your own risk.
+
+
 FILES
 -----
 OEMSETUP.INF  Native Windows NT 3.x Setup installer
