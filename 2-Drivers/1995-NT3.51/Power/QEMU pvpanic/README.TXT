@@ -55,4 +55,4 @@ Diagnostics
 
 Available Command-line actions: SCAN, INSTALL, STATUS, REMOVE.
 
-Source: https://github.com/CoccodrillooXDS/QEMUDrivers/tree/patches/QEMU/pvpanic/1.4
+Source: https://github.com/CoccodrillooXDS/QEMUPWR/
