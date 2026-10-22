@@ -24,7 +24,7 @@ The tested, installable driver package is available on [`main`](https://github.c
 
 QEMUPWR 1.4 enables automatic VM power-off on Windows NT 3.51 and Windows NT 4.0 through the QEMU ISA pvpanic shutdown event (`0x04`), without requiring guest ACPI support.
 
-The [source code](QEMU/pvpanic/1.4/) produces `QEMUPWR.EXE` and `QEMUPWR.SYS`.
+QEMUPWR is maintained in its [dedicated repository](https://github.com/CoccodrillooXDS/QEMUPWR), which contains the source code, build tools, and [v1.4 release](https://github.com/CoccodrillooXDS/QEMUPWR/releases/tag/v1.4). Its original commits remain available in this branch's Git history.
 
 The tested driver packages are provided on `main` for [Windows NT 3.51](https://github.com/CoccodrillooXDS/QEMUDrivers/tree/main/2-Drivers/1995-NT3.51/Power/QEMU%20pvpanic) and [Windows NT 4.0](https://github.com/CoccodrillooXDS/QEMUDrivers/tree/main/2-Drivers/1996-NT4/Power/QEMU%20pvpanic).
 
